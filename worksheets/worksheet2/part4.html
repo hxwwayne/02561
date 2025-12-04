@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 a_Position;
+    attribute vec4 a_Color;
+    varying vec4 v_Color;
+  
+    void main(){
+      gl_PointSize = 20.0;
+      v_Color = a_Color;
+      gl_Position = a_Position;
+    }
+</script>
+<script id="fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+    varying vec4 v_Color;
+  
+    void main(){
+      gl_FragColor = v_Color;
+    }
+</script>
+
+<script type="text/javascript" src="../../common/webgl-utils.js"></script>
+<script type="text/javascript" src="../../common/MV.js"></script>
+<script type="text/javascript" src="../../common/initShaders.js"></script>
+<script type="text/javascript" src="part4.js"></script>
+<html><body>
+    <center>
+    <canvas id='canvas' width="512" height="512"></canvas>
+    <br>
+    <button onclick="clearCanvas()">Clear Canvas</button>
+    <button onclick="setMode('points')">Draw Points</button>
+    <button onclick="setMode('triangles')">Draw Triangles</button>
+    <button onclick="setMode('circle')">Draw Circle</button>
+    <br>
+    Clear Color: <input type="color" id="clearColor" value="#648fff">
+    <br>
+    Point Color: <input type="color" id="pointColor" value="#ff0000">
+    </center>
+
+</body>
+</html>

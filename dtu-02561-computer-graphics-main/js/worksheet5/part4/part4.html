@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<script id="vertex-shader" type="x-shader/x-vertex">
+
+attribute vec4 vPosition;
+attribute vec3 vNormal;
+attribute vec4 fColor;
+
+varying vec4 Color;
+
+uniform mat4 modelView;
+uniform mat4 projection;
+
+// new
+uniform vec4 lightPosition;
+varying vec3 n, wi, wo;
+varying vec4 fPosition;
+
+void
+main()
+{
+    Color = fColor;
+
+    vec3 pos = (modelView * vPosition).xyz;
+    vec3 light = (modelView * lightPosition).xyz;
+    n = vNormal;
+
+    wi = lightPosition.w == 0.0 ? normalize(light):normalize(light-pos);
+    wo = normalize(-pos);
+
+    gl_Position = projection * modelView * vPosition;
+    fPosition = vPosition;
+}
+</script>
+
+<script id="fragment-shader" type="x-shader/x-fragment">
+
+precision mediump float;
+
+varying vec4 Color;
+
+uniform float Le;
+uniform vec4 Li;
+uniform vec4 kd;
+uniform vec4 ka;
+uniform vec4 ks;
+uniform float alpha;
+
+varying vec3 n, wi, wo;
+varying vec4 fPosition;
+
+void
+main()
+{
+
+  vec4 fColor;
+
+  vec3 wh = normalize(wi + wo);
+
+  vec4 La = ka * Li * Le;
+  vec4 Ld = kd *Li * Le * max( dot(normalize(wi), normalize(n)), 0.0 );
+  vec4 Ls = ks * Li * Le * pow(max( dot(wh,normalize(n)), 0.0 ), alpha);
+  vec4 Lo = Ld + La + Ls;
+
+  if( dot(wi, n) < 0.0 ) Ls = vec4(0.0, 0.0, 0.0, 1.0);
+
+  fColor = Lo;
+  gl_FragColor = 0.5 * fPosition + 0.5 * fColor;
+
+}
+</script>
+
+<script type="text/javascript" src="../../../common/webgl-utils.js"></script>
+<script type="text/javascript" src="../../../common/MV.js"></script>
+<script type="text/javascript" src="../../../common/initShaders.js"></script>
+<script type="text/javascript" src="../../../common/OBJParser.js"></script>
+<script type="text/javascript" src="w5p4.js"></script>
+<html lang="en" dir="ltr">
+  <head>
+     <link rel="stylesheet" href="../../../css/style.css">
+  <!--  <link rel="stylesheet" href="../../../css/worksheet_css.css"> -->
+    <meta charset="utf-8">
+    <title>Worksheet 5 - part3</title>
+  </head>
+<body>
+  <center>
+    <table>
+      <tbody>
+      <tr>
+      <td>
+        <P>  <canvas id="gl-Canvas" width="512" height="512">
+        Something went wrong!
+        </canvas></P>
+      </td>
+      <td>
+        <div class="menu">
+        <table style="background-color:#7BA6C7;">
+
+        <tbody>
+        <tr><div class="headline">Menu:</div><br>
+        <td>
+          <br>
+          &nbsp;Orbit:
+          &nbsp;<button id = "orbit"> on / off</button>
+          <hr>
+        </td>
+      </td>
+    </tr>
+
+    <tr>
+    <td>
+      <br>  &nbsp;K<sub>a</sub><br>
+      <input id="slide_ka" type="range" min="0" max="1" value="0.5" step="0.1"/>
+    </td>
+    <td>&nbsp;</td>
+    </tr>
+    <tr>
+    <td>
+      <br>  &nbsp;K<sub>d</sub><br>
+      <input id="slide_kd" type="range" min="0" max="1" value="0.5" step="0.01"/>
+    </td>
+    <td>&nbsp;</td>
+    </tr>
+    <tr>
+    <td>
+      <br>  &nbsp;K<sub>s</sub><br>
+      <input id="slide_ks" type="range" min="0" max="1" value="0.03" step="0.01"/>
+    </td>
+    <td>&nbsp;</td>
+    </tr>
+    <tr>
+    <td>
+      <br>  &nbsp;&alpha;<br>
+      <input id="slide_alpha" type="range" min="0" max="200" value="100" step="5"/>
+    </td>
+    <td>&nbsp;</td>
+    </tr>
+    <tr>
+    <td>
+      <br>  &nbsp;L<sub>e</sub><br>
+      <input id="slide_le" type="range" min="0" max="2" value="0.5" step="0.05"/>
+    </td>
+    <td>&nbsp;</td>
+    </tr>
+    </tbody>
+
+    </table>
+      </div>
+    </td>
+    </tr>
+    </tbody>
+    </table>
+    </div>
+</td>
+</tr>
+</tbody>
+</table>
+<br><br>
+<input type="button" value="Close this window" onclick="self.close()">
+</center>
+
+</body>
+</html>

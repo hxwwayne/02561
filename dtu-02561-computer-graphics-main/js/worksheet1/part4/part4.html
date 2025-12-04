@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+  attribute vec2 vPosition;
+  attribute vec3 vColor;
+  varying vec4 color;
+  uniform float theta;
+
+  void main(){
+    //gl_PointSize = 20.0;
+    //gl_Position = vec4(vPosition, 0.0, 1.0);
+    float s = sin(theta);
+    float c = cos(theta);
+
+    gl_Position.x = -s * vPosition.y + c * vPosition.x;
+    gl_Position.y = s * vPosition.x + c * vPosition.y;
+    gl_Position.z = 0.0;
+    gl_Position.w = 1.0;
+
+    color = vec4(vColor, 1.0);
+  }
+</script>
+<script id="fragment-shader" type="x-shader/x-fragment">
+  precision mediump float;
+  varying vec4 color;
+
+  void main(){
+    gl_FragColor = color;
+  }
+</script>
+
+
+<script type="text/javascript" src="../../../common/webgl-utils.js"></script>
+<script type="text/javascript" src="../../../common/MV.js"></script>
+<script type="text/javascript" src="../../../common/initShaders.js"></script>
+<script type="text/javascript" src="w1p4.js"></script>
+<html lang="en" dir="ltr">
+  <head>
+  <!--  <link rel="stylesheet" href="../../css/worksheet_css.css"> -->
+    <meta charset="utf-8">
+    <title>Worksheet 1 - part4</title>
+  </head>
+
+  <body>
+    <center>
+  <canvas id="gl-Canvas" width="512" height="512">
+    Something went wrong!
+  </canvas>
+<button id=stopButton>Stop animation</button>
+<br><br>
+<input type="button" value="Close this window" onclick="self.close()">
+
+  </center>
+
+  </body>
+</html>

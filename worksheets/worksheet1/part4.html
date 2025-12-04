@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_Position;
+    attribute vec4 a_Color;
+    varying vec4 v_Color;
+    uniform float u_Rotation;
+  
+    void main(){
+      v_Color = a_Color;
+      vec2 rotatedPosition = vec2(
+        a_Position.x * cos(u_Rotation) - a_Position.y * sin(u_Rotation),
+        a_Position.x * sin(u_Rotation) + a_Position.y * cos(u_Rotation)
+      );
+      gl_Position = vec4(rotatedPosition, 0.0, 1.0);
+    }
+  </script>
+<script id="fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+    varying vec4 v_Color;
+  
+    void main(){
+      gl_FragColor = v_Color;
+    }
+</script>
+
+<script type="text/javascript" src="../../common/webgl-utils.js"></script>
+<script type="text/javascript" src="../../common/MV.js"></script>
+<script type="text/javascript" src="../../common/initShaders.js"></script>
+<script type="text/javascript" src="part4.js"></script>
+<html><body>
+    <center>
+    <canvas id='canvas' width="512" height="512"></canvas>
+    </center>
+
+</body>
+</html>

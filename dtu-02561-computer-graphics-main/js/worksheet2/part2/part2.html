@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+  attribute vec2 vPosition;
+  attribute vec3 vColor;
+  varying vec4 color;
+
+  void main(){
+    gl_PointSize = 20.0;
+    gl_Position = vec4(vPosition, 0.0, 1.0);
+    color = vec4(vColor, 1.0);
+  }
+</script>
+<script id="fragment-shader" type="x-shader/x-fragment">
+  precision mediump float;
+  varying vec4 color;
+
+  void main(){
+    gl_FragColor = color;
+  }
+</script>
+
+
+<script type="text/javascript" src="../../../common/webgl-utils.js"></script>
+<script type="text/javascript" src="../../../common/MV.js"></script>
+<script type="text/javascript" src="../../../common/initShaders.js"></script>
+<script type="text/javascript" src="w2p2.js"></script>
+<html lang="en" dir="ltr">
+  <head>
+<!--    <link rel="stylesheet" href="../../css/worksheet_css.css"> -->
+    <meta charset="utf-8">
+    <title>Worksheet 2 - part2</title>
+  </head>
+
+  <body>
+    <center>
+
+
+  <table style="width: 0%;" >
+  <tbody>
+  <tr>
+  <td>
+      <canvas id="gl-Canvas" width="512" height="512">
+        Something went wrong!
+      </canvas>
+  </td>
+  <td>
+    <table style="width: 0%;background-color: #8B8B8D;" >
+    <tbody>
+    <tr>
+
+    <td>
+      <font color="white">Pick color of points
+        <br>
+      <select id="colorMenu" size="6">
+      <option value="0">Sky Blue</option>
+      <option value="1">White</option>
+      <option value="2">Grey</option>
+      <option value="3">Cyan Green</option>
+    <option value="4">Blue Screen of death</option>
+      <option value="5" selected>Black</option>
+      </select>
+    </td>
+    <td></td>
+    </tr>
+    <tr>
+    <td><br>
+      <font color="white">Pick canvas color
+        <br>
+      <select id="clearMenu" size="6">
+        <option value="0" selected>Sky Blue</option>
+        <option value="1">White</option>
+        <option value="2">Grey</option>
+        <option value="3">Cyan Green</option>
+        <option value="4">Blue Screen of death</option>
+          <option value="5">Black</option>
+      </select>
+    </td>
+    <td></td>
+    </tr>
+    <tr>
+    <td><br><button id="clearButton">Clear Canvas</button></td>
+    <td>&nbsp;</td>
+    </tr>
+    </tbody>
+    </table>
+  </td>
+  </tr>
+  </tbody>
+  </table>
+  <br><br>
+  <input type="button" value="Close this window" onclick="self.close()">
+  </center>
+
+  </body>
+</html>

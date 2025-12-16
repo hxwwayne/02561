@@ -1,10 +1,5 @@
-
-
 async function main() {
-    // if (!navigator.gpu) {
-    //     console.log("WebGPU is not supported. Make sure you are on a compatible browser.");
-    //     return;
-    // }
+
     const gpu = navigator.gpu;
     const adapter = await gpu.requestAdapter();
     const device = await adapter.requestDevice();
@@ -148,7 +143,6 @@ async function main() {
 
 
     function render() {
-        // Create a render pass in a command buffer and submit it
         const encoder = device.createCommandEncoder();
         const pass = encoder.beginRenderPass({
             colorAttachments: [{
@@ -159,7 +153,6 @@ async function main() {
             }],
         });
 
-        // Insert render pass commands here
         pass.setPipeline(pipeline);
         pass.setVertexBuffer(0, vertexBuffer);
         pass.setIndexBuffer(indexBuffer, 'uint32');

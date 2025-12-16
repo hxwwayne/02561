@@ -110,7 +110,6 @@ async function main() {
     });
 
     function render() {
-        // Create a render pass in a command buffer and submit it
         const encoder = device.createCommandEncoder();
         const pass = encoder.beginRenderPass({
             colorAttachments: [{
@@ -121,7 +120,6 @@ async function main() {
             }],
         });
 
-        // Insert render pass commands here
         pass.setPipeline(pipeline);
         pass.setVertexBuffer(0, vertexBuffer);
         pass.setIndexBuffer(indexBuffer, 'uint32');

@@ -28,7 +28,7 @@ struct VSOutTeapot {
     @location(0) vColor         : vec4<f32>,
     @location(1) vNormal        : vec3<f32>,
     @location(2) vWorldPos      : vec3<f32>,
-    @location(3) vLightSpacePos : vec4<f32>,  
+    @location(3) vLightSpacePos : vec4<f32>,  // 新增
 };
 
 
@@ -36,6 +36,7 @@ struct VSOutTeapot {
 var<uniform> uniforms: Uniforms;
 
 fn compute_shadow_factor(lightSpacePos : vec4<f32>) -> f32 {
+    // light clip -> NDC
     let p = lightSpacePos / lightSpacePos.w;
 
     let depthCurrent = 0.5 * p.z + 0.5;
@@ -46,12 +47,13 @@ fn compute_shadow_factor(lightSpacePos : vec4<f32>) -> f32 {
         depthCurrent
     );
 
-
+    
     if (shadowCoords.x < 0.0 || shadowCoords.x > 1.0 ||
         shadowCoords.y < 0.0 || shadowCoords.y > 1.0 ||
         shadowCoords.z < 0.0 || shadowCoords.z > 1.0) {
         return 1.0;
     }
+
 
     let texSize = uniforms.shadowMapRes;
     let texelCoords = vec2u(shadowCoords.xy * texSize);
@@ -59,9 +61,10 @@ fn compute_shadow_factor(lightSpacePos : vec4<f32>) -> f32 {
     let depthTex = textureLoad(shadowMap, texelCoords, 0).r;
     let epsilon = 0.001;
 
+
     let inShadow = depthTex < depthCurrent - epsilon;
 
-    return select(1.0, 0.0, inShadow); 
+    return select(1.0, 0.0, inShadow);  // inShadow ? 0 : 1
 }
 
 
@@ -83,7 +86,10 @@ fn vs_main_teapot(input : VSInTeapot) -> VSOutTeapot {
 
 @fragment
 fn fs_main_teapot(input : VSOutTeapot) -> @location(0) vec4<f32> {
-    let N = normalize(input.vNormal);
+    var N = normalize(input.vNormal);
+    if (uniforms.params2.w > 0.5) {
+        N.y = -N.y;
+    };
     let L = normalize(uniforms.lightPos.xyz - input.vWorldPos);
     let V = normalize(uniforms.eye.xyz - input.vWorldPos);
     let H = normalize(L + V);
@@ -97,14 +103,20 @@ fn fs_main_teapot(input : VSOutTeapot) -> @location(0) vec4<f32> {
     let NoL = max(dot(N, L), 0.0);
     let NoH = max(dot(N, H), 0.0);
 
-    let shadowFactor = compute_shadow_factor(input.vLightSpacePos);
+    var shadowFactor = 1.0;
+    if (uniforms.params2.w < 0.5) {
+        shadowFactor = compute_shadow_factor(input.vLightSpacePos);
+    }
+    // let shadowFactor = 1.0;
 
     let diffuse  = kd * Le * NoL * shadowFactor;
     let specular = ks * Le * pow(NoH, shininess) * shadowFactor;
     let ambient  = kd * La;
 
     let color = input.vColor.rgb * (diffuse + ambient) + vec3<f32>(specular);
-    return vec4<f32>(color, 1.0);
+    let h = clamp((input.vWorldPos.y + 1.0) / 1.0, 0.0, 1.0);
+    let reflectAlpha = 0.4 * (1.0 - h);
+    return vec4<f32>(color, reflectAlpha);
 }
 
 // -----------------------------------------ground shader-----------------------------------------
@@ -146,8 +158,8 @@ fn fs_main_ground(input: VertexOutputGround) -> @location(0) vec4<f32> {
 
     let lighting = ambient + direct;
 
-    let color = texColor.rgb * lighting * visibility;
-    return vec4<f32>(color, texColor.a);
+    let color = texColor.rgb * lighting;
+    return vec4<f32>(color, visibility);
 }
 
 

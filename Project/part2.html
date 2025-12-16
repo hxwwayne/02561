@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>02561 Computer Graphics Project Part 2</title>
+  <script type="text/javascript" src="../Common/MV.js"></script>
+  <script type="text/javascript" src="../Common/OBJParser.js"></script>
+  <script type="text/javascript" src="part2.js"></script>
+</head>
+<body>
+  <center>
+  <canvas id="canvas" width="512" height="512">
+    Your browser does not support the HTML5 canvas tag.
+  </canvas>
+  <div id="ui" style="max-width:520px;line-height:1.8">
+    <button id="lightBtn" aria-pressed="true">light: on</button><br>
+    <button id="jumpBtn" aria-pressed="true">jump: on </button><br>
+    <label>Emitted radiance L_e <input id="Le" type="range" min="0" max="2" step="0.01" value="1.0"></label><br>
+    <label>Ambient radiance L_a <input id="La" type="range" min="0" max="1" step="0.01" value="0.15"></label><br>
+    <label>Diffuse coeff k_d    <input id="kd" type="range" min="0" max="1" step="0.01" value="0.9"></label><br>
+    <label>Specular coeff k_s   <input id="ks" type="range" min="0" max="1" step="0.01" value="0.6"></label><br>
+    <label>Shininess s          <input id="s"  type="range" min="1" max="512" step="1"   value="64"></label>
+  </div>
+  </center>
+</body>
+</html>

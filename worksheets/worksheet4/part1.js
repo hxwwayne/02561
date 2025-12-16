@@ -73,10 +73,7 @@ function buildSphere(level) {
 
 
 async function main() {
-    // if (!navigator.gpu) {
-    //     console.log("WebGPU is not supported. Make sure you are on a compatible browser.");
-    //     return;
-    // }
+
     const gpu = navigator.gpu;
     const adapter = await gpu.requestAdapter();
     const device = await adapter.requestDevice();

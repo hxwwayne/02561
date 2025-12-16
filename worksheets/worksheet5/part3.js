@@ -1,6 +1,4 @@
 
-
-
 async function main() {
   
     const gpu = navigator.gpu;
@@ -201,7 +199,6 @@ async function main() {
 
 
     function render() {
-        // Create a render pass in a command buffer and submit it
         if (isOrbiting)
             angle += 0.01;
         updateMVP();
@@ -222,7 +219,6 @@ async function main() {
             },
         });
 
-        // Insert render pass commands here
         pass.setPipeline(pipeline);
         pass.setVertexBuffer(0, vertexBuffer);
         pass.setVertexBuffer(1, colorBuffer);

@@ -13,6 +13,43 @@ function shadowMatrixForPlane(lightPos) {
     );
 }
 
+function reflectMatrixY(y0) {
+
+    return mult(
+        translate(0.0, y0, 0.0),
+        mult(scalem(1.0, -1.0, 1.0), translate(0.0, -y0, 0.0))
+    );
+}
+
+
+function modifyProjectionMatrix(clipplane, projection) {
+    const oblique = mult(mat4(), projection);
+
+    const q = vec4(
+        (Math.sign(clipplane[0]) + projection[0][2]) / projection[0][0],
+        (Math.sign(clipplane[1]) + projection[1][2]) / projection[1][1],
+        -1.0,
+        (1.0 + projection[2][2]) / projection[2][3]
+    );
+    const s = 2.0 / dot(clipplane, q);
+    oblique[2] = vec4(
+        clipplane[0] * s,
+        clipplane[1] * s,
+        clipplane[2] * s + 1.0,
+        clipplane[3] * s
+    );
+
+    return oblique;
+}
+
+// plane in world -> plane in eye:  plane_eye = (inverse(view))^T * plane_world
+function planeWorldToEye(planeWorld, view) {
+    const invV = inverse(view);
+    const invVT = transpose(invV);
+    return mult(invVT, planeWorld); 
+}
+
+
 
 async function main() {
   
@@ -27,7 +64,7 @@ async function main() {
         format: format,
         // alphaMode: 'opaque',
     });
-    const shaderCode = await fetch('part3.wgsl').then(r => r.text());
+    const shaderCode = await fetch('part4.wgsl').then(r => r.text());
     const shaderModule = device.createShaderModule({code: shaderCode});
 
     // --------------------------- set up geometry data ---------------------------
@@ -169,7 +206,7 @@ async function main() {
     const msaaCount = 4;
     const depthTexture = device.createTexture({
         size: [canvas.width, canvas.height],
-        format: 'depth24plus',
+        format: 'depth24plus-stencil8',
         usage: GPUTextureUsage.RENDER_ATTACHMENT,
         sampleCount: msaaCount,
     });
@@ -203,8 +240,51 @@ async function main() {
 
     // --------------------------- pipelines ---------------------------
 
+    const bgl0 = device.createBindGroupLayout({
+        entries: [
+            { // binding 0: uniforms
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            buffer: { type: "uniform" }
+            },
+            { // binding 1: ground texture
+            binding: 1,
+            visibility: GPUShaderStage.FRAGMENT,
+            texture: { sampleType: "float", viewDimension: "2d" }
+            },
+            { // binding 2: ground sampler
+            binding: 2,
+            visibility: GPUShaderStage.FRAGMENT,
+            sampler: { type: "filtering" }
+            },
+            { // binding 3: shadow map texture
+            binding: 3,
+            visibility: GPUShaderStage.FRAGMENT,
+            texture: { sampleType: "unfilterable-float", viewDimension: "2d" }
+            },
+        ]
+    });
+
+    const pipeLineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [bgl0],
+    });
+
+    const depthBGL = device.createBindGroupLayout({
+        entries: [
+            {
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            buffer: { type: "uniform" },
+            },
+        ],
+    });
+
+    const depthPipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [depthBGL],
+    });
+
     const teapotPipeline = device.createRenderPipeline({
-        layout: 'auto',
+        layout: pipeLineLayout,
         vertex: {
             module: shaderModule,
             entryPoint: 'vs_main_teapot',
@@ -221,7 +301,7 @@ async function main() {
             frontFace: 'ccw',
         },
         depthStencil: {
-            format: 'depth24plus',
+            format: 'depth24plus-stencil8',
             depthWriteEnabled: true,
             depthCompare: 'less',
         },
@@ -229,8 +309,58 @@ async function main() {
     
     });
 
+    const teapotPipelineReflect = device.createRenderPipeline({
+        layout: pipeLineLayout,
+        vertex: {
+            module: shaderModule,
+            entryPoint: 'vs_main_teapot',
+            buffers: [vertexTeapotLayout, colorTeapotLayout, normalTeapotLayout],
+        },
+        fragment: {
+            module: shaderModule,
+            entryPoint: 'fs_main_teapot',
+            targets: [{
+                format: format,
+                blend: {
+                color: {
+                    srcFactor: 'src-alpha',
+                    dstFactor: 'one-minus-src-alpha',
+                    operation: 'add',
+                },
+                alpha: {
+                    srcFactor: 'one',
+                    dstFactor: 'one-minus-src-alpha',
+                    operation: 'add',
+                },
+                },
+            }],
+        },
+
+        primitive :{
+            topology: 'triangle-list',
+            cullMode: 'back',
+            frontFace: 'cw'
+        },
+        depthStencil: {
+            format: 'depth24plus-stencil8',
+            depthWriteEnabled: true,
+            depthCompare: 'less',
+            stencilFront: {
+                compare: 'equal',
+                passOp: 'keep',
+            },
+            stencilBack: {
+                compare: 'equal',
+                passOp: 'keep',
+            },
+            stencilReadMask: 0xff,
+        },
+
+        multisample: { count: msaaCount},
+    });
+
     const groundPipeline = device.createRenderPipeline({
-        layout: 'auto',
+        layout: pipeLineLayout,
         vertex: {
             module: shaderModule,
             entryPoint: 'vs_main_ground',
@@ -239,7 +369,21 @@ async function main() {
         fragment: {
             module: shaderModule,
             entryPoint: 'fs_main_ground',
-            targets: [{ format: format }],
+            targets: [{ 
+                format: format,
+                blend: {
+                    color: {
+                        srcFactor: 'src-alpha',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add',
+                    },
+                    alpha: {
+                        srcFactor: 'one',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add',
+                    },
+                },
+             }],
         },
         primitive: {
             topology: 'triangle-list',
@@ -247,7 +391,7 @@ async function main() {
             frontFace: 'ccw',
         },
         depthStencil: {
-            format: 'depth24plus',
+            format: 'depth24plus-stencil8',
             depthWriteEnabled: true,
             depthCompare: 'less',
         },
@@ -256,7 +400,7 @@ async function main() {
 
 
     const depthPipeline = device.createRenderPipeline({
-        layout: 'auto',
+        layout: depthPipelineLayout,
         vertex: {
             module: shaderModule,
             entryPoint: 'vs_main_depth',
@@ -278,6 +422,42 @@ async function main() {
             depthCompare: 'less',
         },
     });
+
+    const groundStencilPipeline = device.createRenderPipeline({
+        layout: pipeLineLayout,
+        vertex: {
+            module: shaderModule,
+            entryPoint: 'vs_main_ground',
+            buffers: [vertexGroundLayout, textureGroundLayout],
+        },
+        fragment: {
+            module: shaderModule,
+            entryPoint: 'fs_main_ground',
+            targets: [{
+                format: format,
+                writeMask: 0,
+            }], 
+        },
+        primitive: {
+            topology: 'triangle-list',
+        },
+        depthStencil: {
+            format: 'depth24plus-stencil8',
+            depthWriteEnabled: false,
+            depthCompare: 'always',
+            stencilFront: {
+            compare: 'always',
+            passOp: 'replace',  
+            },
+            stencilBack: {
+            compare: 'always',
+            passOp: 'replace',
+            },
+            stencilWriteMask: 0xff,
+        },
+        multisample: { count: msaaCount},
+    });
+
 
     const params = {
         Le: 1.0, La: 0.15, kd: 0.9, ks: 0.6, s: 64.0,
@@ -305,9 +485,11 @@ async function main() {
         });
         device.queue.writeBuffer(buf, 0, matrix);
         const bindGroup = device.createBindGroup({
-            layout: teapotPipeline.getBindGroupLayout(0),
+            layout: bgl0,
             entries: [
                 {binding: 0, resource: {buffer: buf}},
+                {binding: 1, resource: textureGround.createView()},
+                {binding: 2, resource: samplerGround},
                 {binding: 3, resource: shadowMapTexture.createView()}
             ]
         });
@@ -319,7 +501,7 @@ async function main() {
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     const groundBindGroup = device.createBindGroup({
-        layout: groundPipeline.getBindGroupLayout(0),
+        layout: bgl0,
         entries: [{binding: 0, resource: {buffer: groundUniformBuffer}},
         {binding: 1, resource: textureGround.createView()},
         {binding: 2, resource: samplerGround},
@@ -332,22 +514,21 @@ async function main() {
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     const depthBindGroup = device.createBindGroup({
-        layout: depthPipeline.getBindGroupLayout(0),
-        entries: [{ binding: 0, resource: { buffer: depthUniformBuffer } }],
+        layout: depthBGL,
+        entries: [
+            { binding: 0, resource: { buffer: depthUniformBuffer } },
+        ],
     });
 
-    
 
 
-
-    const fovy = 60;
-    const near = 0.05;
-    const far = 100.0;
+    const fovy = 65;
+    const near = 0.1;
+    const far = 50.0;
     let angle = 0.0;
     const radius = 2;
-    const at = vec3(0.0, 0.0, 0.0);
-    const up = vec3(0.0, 1.0, 0.0);
     const projection = perspective(fovy, canvas.width / canvas.height, near, far);
+    const groundAlpha = 0.35
 
     let isJumping = true;
     let jumpPhase = 0.0;
@@ -361,23 +542,37 @@ async function main() {
     }
 
     let uniformBindGroup = null;
+    let uniformBindGroupReflect = null;
 
     function updateMVP() {
-        const eye = vec3(radius*Math.sin(angle), 0.0, radius*Math.cos(angle));
+        // const eye = vec3(radius*Math.sin(angle), 0.0, radius*Math.cos(angle));
+        const eye = vec3(0.0, 0.0, 1.0);
 
-        const view = mat4();
-        const pv = mult(projection, view);
+        // const view = mat4();
+        const view = lookAt(eye, vec3(0.0, 0.0, -3.0), vec3(0.0, 1.0, 0.0));
+        const pv = mult(Mst, mult(projection, view));
+        // oblique clip for reflection
+        let planeWorld = vec4(0.0, -1.0, 0.0, -1.0);
+        let planeEye = planeWorldToEye(planeWorld, view);
+        const projOblique = modifyProjectionMatrix(planeEye, projection);
+        const pvReflect = mult(Mst, mult(projOblique, view));
+        const yMin = -1.8;
+        const yMax = 0.0
         let yTranslate = -1.0;
         if (isJumping) {
-            const centerY = (-1.0 + 0.5) * 0.5;
-            const ampY = (0.5 - (-1.0)) * 0.5;
+            const centerY = (yMin + yMax) * 0.5;
+            const ampY = (yMax - yMin) * 0.5;
             yTranslate = centerY + ampY * Math.sin(jumpPhase);
         }
         const M_scale = scalem(0.25, 0.25, 0.25);
         const M_trans = translate(0.0, yTranslate, -3.0);
         const M_model = mult(M_trans, M_scale);
         const M_center = translate (0.0, 0.0, 0.0);
-        const mvpteapot = mult(Mst ,mult(pv, M_model));
+        const mvpteapot = mult(pv, M_model);
+
+        const R = reflectMatrixY(-1.0)
+        const M_model_Reflect = mult(R, M_model);
+        const mvpteapotReflect = mult(pvReflect, M_model_Reflect);  
 
         const lightPos = vec3(
             lightCenter[0] + lightRadius * Math.cos(lightAngle),
@@ -387,8 +582,6 @@ async function main() {
         // light view and projection
         lightView = lookAt(lightPos, vec3(0.0, -1.0, -3.0), vec3(0.0, 1.0, 0.0));
         const lightPV = mult(lightProjection, lightView);
-        const M_shadow = shadowMatrixForPlane(lightPos);
-        // const mvpShadow = mult(Mst ,mult(pv, mult(M_shadow, M_model)));
 
         const data = new Float32Array(UNIFORM_SIZE);
         data.set(flatten(mvpteapot), 0);
@@ -399,24 +592,28 @@ async function main() {
         data.set(flatten(M_model), 32);
         data.set(flatten(lightPV), 48);              // 48 = 32 + 16
         data.set([shadowMapSize, shadowMapSize, 0.0, 0.0], 64);
+        uniformBindGroup = makeUniformBufferandBindGroup(data);
+        
+        const dataReflect = new Float32Array(data);
+        dataReflect.set(flatten(mvpteapotReflect), 0);
+        dataReflect.set(flatten(M_model_Reflect), 32);
+        dataReflect[27] = 1.0;
 
-
-        uniformBindGroup = makeUniformBufferandBindGroup(data); 
+        uniformBindGroupReflect = makeUniformBufferandBindGroup(dataReflect);
+        
         const M_ground = mat4();
         const mvpground = mult(Mst ,mult(pv, M_ground));
         const groundData = new Float32Array(UNIFORM_SIZE);
         groundData.set(flatten(mvpground), 0);
         groundData.set(vec4(eye, 1.0), 16);
         groundData.set([params.Le, params.La, params.kd, params.ks], 20);
-        groundData.set([params.s, 1.0, 0, 0], 24);
+        groundData.set([params.s, groundAlpha, 0, 0], 24);
         groundData.set(vec4(lightPos, 1.0), 28);
         groundData.set(flatten(M_ground), 32);
         groundData.set(flatten(lightPV), 48);
         groundData.set([shadowMapSize, shadowMapSize, 0.0, 0.0], 64);
         device.queue.writeBuffer(groundUniformBuffer, 0, groundData);
-        // const shadowData = new Float32Array(UNIFORM_SIZE);
-        // shadowData.set(flatten(mvpShadow), 0);
-        // device.queue.writeBuffer(shadowUniformBuffer, 0, shadowData);
+
         const depthData = new Float32Array(UNIFORM_SIZE);
         depthData.set(flatten(M_model), 32);
         depthData.set(flatten(lightPV), 48);
@@ -467,8 +664,9 @@ async function main() {
         }
 
         // ----- 2) normal camera pass -----
+        // Pass A: stencil + reflected
         {
-            const pass = encoder.beginRenderPass({
+            const passA = encoder.beginRenderPass({
                 colorAttachments: [{
                     view: msaaTexture.createView(),
                     resolveTarget: context.getCurrentTexture().createView(),
@@ -481,27 +679,75 @@ async function main() {
                     depthLoadOp: 'clear',
                     depthStoreOp: 'store',
                     depthClearValue: 1.0,
+                    stencilLoadOp: 'clear',
+                    stencilStoreOp: 'store',
+                    stencilClearValue: 0,
                 },
             });
 
-            pass.setPipeline(groundPipeline);
-            pass.setVertexBuffer(0, vertexBufferGround);
-            pass.setVertexBuffer(1, textureBufferGround);
-            pass.setIndexBuffer(indexBufferGround, 'uint32');
-            pass.setBindGroup(0, groundBindGroup);
-            pass.drawIndexed(groundIndices.length);
+            passA.setStencilReference(1);
 
-            pass.setPipeline(teapotPipeline);
-            pass.setVertexBuffer(0, vertexBufferTeapot);
-            pass.setVertexBuffer(1, colorBufferTeapot);
-            pass.setVertexBuffer(2, normalBufferTeapot);
-            pass.setIndexBuffer(indexBufferTeapot, 'uint32');
-            pass.setBindGroup(0, uniformBindGroup);
-            pass.drawIndexed(indices.length);
+            passA.setPipeline(groundStencilPipeline);
+            passA.setVertexBuffer(0, vertexBufferGround);
+            passA.setVertexBuffer(1, textureBufferGround);
+            passA.setIndexBuffer(indexBufferGround, 'uint32');
+            passA.setBindGroup(0, groundBindGroup);
+            passA.drawIndexed(groundIndices.length);
 
-            pass.end();
+            passA.setPipeline(teapotPipelineReflect);
+            passA.setVertexBuffer(0, vertexBufferTeapot);
+            passA.setVertexBuffer(1, colorBufferTeapot);
+            passA.setVertexBuffer(2, normalBufferTeapot);
+            passA.setIndexBuffer(indexBufferTeapot, 'uint32');
+            passA.setBindGroup(0, uniformBindGroupReflect);
+            passA.drawIndexed(indices.length);
+
+            passA.end();
+
+
         }
 
+        // Pass B: clear depth again, draw normal + ground visible
+        {
+            const passB = encoder.beginRenderPass({
+                colorAttachments: [{
+                    view: msaaTexture.createView(),
+                    resolveTarget: context.getCurrentTexture().createView(),
+                    loadOp: 'load',
+                    storeOp: 'store',
+                    clearValue: { r: 0.4, g: 0.6, b: 0.9, a: 1.0 },
+                }],
+                depthStencilAttachment: {
+                view: depthTexture.createView(),
+                depthLoadOp: 'clear',   
+                depthStoreOp: 'store',
+                depthClearValue: 1.0,
+                stencilLoadOp: 'load',  
+                stencilStoreOp: 'store',
+                },
+            });
+
+            // normal teapot
+            passB.setPipeline(teapotPipeline);
+            passB.setVertexBuffer(0, vertexBufferTeapot);
+            passB.setVertexBuffer(1, colorBufferTeapot);
+            passB.setVertexBuffer(2, normalBufferTeapot);
+            passB.setIndexBuffer(indexBufferTeapot, 'uint32');
+            passB.setBindGroup(0, uniformBindGroup);
+            passB.drawIndexed(indices.length);
+
+            // visible ground  
+            passB.setPipeline(groundPipeline);
+            passB.setVertexBuffer(0, vertexBufferGround);
+            passB.setVertexBuffer(1, textureBufferGround);
+            passB.setIndexBuffer(indexBufferGround, 'uint32');
+            passB.setBindGroup(0, groundBindGroup);
+            passB.drawIndexed(groundIndices.length);
+
+
+            passB.end();
+
+        }
         device.queue.submit([encoder.finish()]);
         requestAnimationFrame(render);
     }

@@ -313,7 +313,6 @@ async function main() {
 
 
     function render() {
-        // Create a render pass in a command buffer and submit it
         if (isJumping)
             jumpPhase += 0.1;
         updateMVP();
@@ -334,7 +333,6 @@ async function main() {
             },
         });
 
-        // Insert render pass commands here
         pass.setPipeline(groundPipeline);
         pass.setVertexBuffer(0, vertexBufferGround);
         pass.setVertexBuffer(1, textureBufferGround);
